@@ -28,7 +28,7 @@ str(activityData)
 summary(activityData)
 ```
 
-##### Change 'Date' format from factor to date
+##### Change `Date` format from factor to date
 ```{r dataDateFormat}
 activityData$date <- as.Date(activityData$date, "%Y-%m-%d")
 class(activityData$date)
