@@ -7,19 +7,178 @@ output:
 
 
 ## Loading and preprocessing the data
+##### Download and unzip data file
 
+```{r gettingFile}
+fileUrl <- "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileUrl, destfile = "repdata_data_activity.zip")
+unzip("repdata_data_activity.zip", overwrite = TRUE)
+```
 
+##### Load Activity Monitoring data into R  
+
+```{r loadingData}
+activityData <- read.csv("activity.csv")
+```
+
+##### Data sample, structure, and summary
+```{r dataSummary1}
+head(activityData)
+str(activityData)
+summary(activityData)
+```
+
+##### Change 'Date' format from factor to date
+```{r dataDateFormat}
+activityData$date <- as.Date(activityData$date, "%Y-%m-%d")
+class(activityData$date)
+```
+
+***
 
 ## What is mean total number of steps taken per day?
 
+##### Aggregate `activiyData` to get the total number of steps for each date
+```{r aggregData1}
+activityDailyStp <- aggregate(steps ~ date, 
+                              data  = activityData, 
+                              FUN   = sum, 
+                              na.rm = TRUE)
+```
 
+##### Plot a histogram of the total number of steps taken each date
+```{r plotHist1}
+library(ggplot2)
+ggplot(activityDailyStp, aes(x = steps)) + 
+      geom_histogram(binwidth = 2500, colour = "black", fill = "dark gray") +
+      xlim(0, 25000) +
+      xlab("Steps") + ylab("Frequency") +
+      ggtitle("Total Number of Steps\n(taken each day)")
+```  
+
+##### Calculate the mean and median for the total number of steps taken per date
+
+```{r dataMeanMedian1}
+activityDailyMean <- mean(activityDailyStp$steps)
+paste("the mean is: ", activityDailyMean)
+
+activityDailyMedian <- median(activityDailyStp$steps)
+paste("the median is: ", activityDailyMedian)
+```
+
+***
 
 ## What is the average daily activity pattern?
 
+##### Aggregate `activiyData` to get the total number of steps for interval
+```{r aggregData2}
+activityDailyIntrv <- aggregate(steps ~ interval, 
+                                data  = activityData, 
+                                FUN   = mean, 
+                                na.rm = TRUE)
+```
 
+##### Make a time series plot of the 5-minute interval and the average number of steps taken
+```{r plotLine1}
+ggplot(activityDailyIntrv, aes(x = interval, y = steps)) +
+      geom_line() + 
+      xlab("Intervals (5 minutes)") + 
+      ylab("Average Number of Steps taken") +
+      ggtitle("Average Number of Steps Taken\n(averaged across all days)")
+```
+
+##### Get the interval that contains the maximum number of steps
+```{r dataStepMax}
+maxSteps <- activityDailyIntrv[which.max(activityDailyIntrv$steps), "interval"]
+paste("the interval that contains maximum steps is: ", maxSteps)
+```
+
+***
 
 ## Imputing missing values
 
+##### Calculate and report the total number of missing values in the dataset
+```{r dataNaCount}
+numberOfNA <- sum(is.na(activityData$steps))
+paste("the total number of NA values is: ", numberOfNA)
+```
 
+##### Fill all of the missing values in the dataset by the mean for that 5-minute interval,
+```{r dataNAFilled}
+activityDataFilled <- activityData
+for(i in 1:nrow(activityData)){
+      if(is.na(activityData[i, "steps"])){
+            activityDataFilled[i, "steps"] = activityDailyIntrv[activityDailyIntrv$interval == activityData[i, "interval"], "steps"]
+      } 
+}
+
+summary(activityDataFilled)
+```
+
+##### Aggregate `activiyDailyFilledStp` to get the total number of steps for each date
+```{r aggregData3}
+activityDailyFilledStp <- aggregate(steps ~ date, 
+                              data  = activityDataFilled, 
+                              FUN   = sum, na.rm = TRUE)
+```                              
+
+##### Plot a histogram of the total number of steps taken each day for the new dataset
+
+```{r plotHist2}
+ggplot(activityDailyFilledStp, aes(x = steps)) + 
+      geom_histogram(binwidth = 2500, colour = "black", fill = "dark gray") +
+      xlim(0, 25000) + xlab("Steps") + ylab("Frequency") +
+      ggtitle("Total Number of Steps (Filled NA)\n(taken each day)")
+```  
+
+##### Calculate the mean and median for the new dataset `activityDataFilled`  
+```{r dataMeanMedian2}
+activityDailyFilledMean <- mean(activityDailyFilledStp$steps)
+paste("the mean is: ", activityDailyFilledMean)
+activityDailyFilledMedian <- median(activityDailyFilledStp$steps)
+paste("the median is: ", activityDailyFilledMedian)
+```
+
+> There are no significant differences between the mean and median for the two 
+> data sets. The only impact that it increases the total number of steps.
+
+***
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+##### Create a new factor variable `day` in the dataset with two levels - "weekday" and "weekend"
+```{r dataColWeekdays}
+for(i in 1:nrow(activityDataFilled)){
+      if(weekdays(activityDataFilled[i, "date"]) %in% c("Saturday", "Sunday")){
+            activityDataFilled[i, "day"] = "weekend"
+      } else {
+            activityDataFilled[i, "day"] = "weekday"
+      }  
+}
+
+activityDataFilled$day <- as.factor(activityDataFilled$day)
+```
+
+##### Show structure for the new dataset
+```{r dataSummaary2}
+str(activityDataFilled)
+```
+
+##### Aggregate `activiyDailyFilledStp` to get the total number of steps for each interval and day
+```{r aggregData4}
+activityDataFilled2 <- aggregate(steps ~ interval + day, 
+                                data  = activityDataFilled,
+                                FUN   = mean)
+```
+
+##### Make a panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across all weekday days or weekend days
+```{r plotLine2}
+ggplot(activityDataFilled2, aes(x = interval, y = steps)) +
+      geom_line() +
+      facet_grid(day ~ .) +
+      xlab("Interval") +
+      ylab("Number of Steps") +
+      ggtitle("Average Number of Steps\n(across all weekday days and weekend days)")
+```  
+
+> Average number of steps in weekdays is higher between the 500th and 1000th interval, and between 1000th and 2000th shows higher activity in weekends than weekdays. \n The activity in weekdays start earlier than weekends (between 500th and 750th interval)
